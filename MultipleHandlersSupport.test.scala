@@ -118,6 +118,26 @@ class MultipleHandlersSupportSpec extends munit.FunSuite {
     )
   }
 
+  test("Execute sqs event handler using functionName and functionInput") {
+
+    val event = SqsEvent(
+      Seq(
+        SqsEvent.Record(
+          messageId = "foo",
+          body = """{"functionName":"TestMe", "functionInput":{"foo":"bar"}}""",
+          attributes = Map.empty,
+          eventSource = "bar",
+          eventSourceARN = "zoo"
+        )
+      )
+    ).writeAsString
+
+    assertEquals(
+      lambdaRuntime.test(event),
+      ""
+    )
+  }
+
   test("getEventHandlerTag") {
     assertEquals(lambdaRuntime.getEventHandlerTag("""{"function":"TestMe","foo":"bar"}"""), Some("TestMe"))
     assertEquals(lambdaRuntime.getEventHandlerTag("""{"functionName":"TestMe","foo":"bar"}"""), Some("TestMe"))

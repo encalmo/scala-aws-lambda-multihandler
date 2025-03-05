@@ -90,7 +90,7 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
                     lambdaContext.debug(
                       s"[EVENT][${index + 1}] Invoking $functionName with payload ${record.writeAsString}"
                     )
-                    val r = handler.handleRecord(record)
+                    val r = handler.handleRecord(getFunctionInput(record))
                     lambdaContext.debug(s"[EVENT][${index + 1}] Handler returned result ${r.getOrElse("none")}")
                     r
                   }
@@ -231,5 +231,12 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
       case Some(value) => value
       case None        => event.get("functionInput").getOrElse(event)
     }
+
+  private inline def getFunctionInput(record: SqsEvent.Record): SqsEvent.Record =
+    record.copy(body =
+      record.body.maybeReadAsJson
+        .map(e => getFunctionInput(e).writeAsString)
+        .getOrElse(record.body)
+    )
 
 }
