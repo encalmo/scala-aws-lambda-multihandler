@@ -151,7 +151,6 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
               |${e.getClass().getName()}
               |${e.getMessage()}${e
                    .getStackTrace()
-                   .filter(_.getClassName().startsWith("org.encalmo"))
                    .take(10)
                    .mkString("\n")}
               |
@@ -165,8 +164,22 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
   }
 
   def handleSqsEventHandlerException(input: String)(
-      exception: Throwable
-  )(using lambdaContext: LambdaContext): Unit = ()
+      e: Throwable
+  )(using lambdaContext: LambdaContext): Unit =
+    println(s"""Request ID: ${lambdaContext.requestId}
+               |
+               |Exception
+               |------------------
+               |${e.getClass().getName()}
+               |${e.getMessage()}${e
+                .getStackTrace()
+                .take(10)
+                .mkString("\n")}
+               |
+               |Input
+               |------------------
+               |$input
+               |""".stripMargin)
 
   def handleGenericEventHandlerException(input: String)(
       exception: Throwable
