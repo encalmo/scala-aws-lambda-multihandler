@@ -1,3 +1,5 @@
+![Maven Central Version](https://img.shields.io/maven-central/v/org.encalmo/scala-aws-lambda-multihandler_3?style=for-the-badge)
+
 # scala-aws-lambda-multihandler
 
 Multiple handlers support for lambda written using scala-aws-lambda-runtime.
