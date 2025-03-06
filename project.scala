@@ -1,6 +1,6 @@
 //> using scala 3.3.5
 //> using exclude scripts
-//> using dep org.encalmo::scala-aws-lambda-runtime:0.9.0
+//> using dep org.encalmo::scala-aws-lambda-runtime:0.9.5
 //> using dep org.encalmo::scala-aws-lambda-utils:0.9.2
 //> using test.dep org.encalmo::scala-aws-lambda-testkit:0.9.0
 //> using test.dep org.scalameta::munit:1.1.0

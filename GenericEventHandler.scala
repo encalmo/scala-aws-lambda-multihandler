@@ -3,7 +3,7 @@ package org.encalmo.lambda
 import ujson.Value
 
 /** Abstract base class of an generic event handler. */
-trait GenericEventHandler[OtherContext] {
+trait GenericEventHandler[ApplicationContext] {
 
   /** Optional function name for handling events having `function` property. If not defined it will default to the
     * simple class name.
@@ -12,5 +12,5 @@ trait GenericEventHandler[OtherContext] {
 
   def handleEvent(
       event: Value
-  )(using LambdaContext, OtherContext): Option[String]
+  )(using LambdaContext, ApplicationContext): Option[String]
 }

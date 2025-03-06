@@ -11,9 +11,7 @@ final case class UnsupportedRequestError(message: String) extends Exception(mess
 
 final case class UnsupportedEventError(message: String) extends Exception(message)
 
-trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTag {
-
-  given otherContext: OtherContext
+trait MultipleHandlersSupport extends EventHandler, EventHandlerTag {
 
   private val functionNameRegex = "\"(?:function|functionName|handler)\"(?:\\s*):(?:\\s*)\"(.+?)\"".r
   private val requestPathRegex = "\"path\"(?:\\s*):(?:\\s*)\"(.+?)\"".r
@@ -26,13 +24,13 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
         .flatMap(m => Option(m.group(1)))
     } catch { case NonFatal(_) => None }
 
-  def apiGatewayRequestHandlers: Iterable[ApiGatewayRequestHandler[OtherContext]]
+  def apiGatewayRequestHandlers: Iterable[ApiGatewayRequestHandler[ApplicationContext]]
 
-  def sqsEventHandlers: Iterable[SqsEventHandler[OtherContext]]
+  def sqsEventHandlers: Iterable[SqsEventHandler[ApplicationContext]]
 
-  def genericEventHandlers: Iterable[GenericEventHandler[OtherContext]]
+  def genericEventHandlers: Iterable[GenericEventHandler[ApplicationContext]]
 
-  lazy val sqsEventHandlersMap: Map[String, SqsEventHandler[OtherContext]] =
+  lazy val sqsEventHandlersMap: Map[String, SqsEventHandler[ApplicationContext]] =
     sqsEventHandlers
       .map(handler =>
         (
@@ -47,7 +45,7 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
       )
       .toMap
 
-  lazy val genericEventHandlersMap: Map[String, GenericEventHandler[OtherContext]] = genericEventHandlers
+  lazy val genericEventHandlersMap: Map[String, GenericEventHandler[ApplicationContext]] = genericEventHandlers
     .map(handler =>
       (
         handler.functionName
@@ -61,9 +59,7 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
     )
     .toMap
 
-  final override inline def handleRequest(
-      input: String
-  )(using lambdaContext: LambdaContext): String =
+  final override def handleRequest(input: String)(using LambdaContext, ApplicationContext): String =
     parseInput(input).match {
       case request: ApiGatewayRequest =>
         try {
@@ -87,18 +83,23 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
                 sqsEventHandlersMap
                   .get(functionName)
                   .flatMap { handler =>
-                    lambdaContext.debug(
-                      s"[EVENT][${index + 1}] Invoking $functionName with payload ${record.writeAsString}"
-                    )
-                    val r = handler.handleRecord(getFunctionInput(record))
-                    lambdaContext.debug(s"[EVENT][${index + 1}] Handler returned result ${r.getOrElse("none")}")
-                    r
+                    handler.handleRecord(getFunctionInput(record))
                   }
                   .getOrElse(
                     throw UnsupportedEventError(write(event))
                   )
               case None =>
-                throw UnsupportedEventError(write(event))
+                if (sqsEventHandlersMap.size == 1)
+                then
+                  sqsEventHandlersMap.head._2
+                    .handleRecord(record)
+                    .getOrElse(
+                      throw UnsupportedEventError(write(event))
+                    )
+                else
+                  throw UnsupportedEventError(
+                    "Ambiguous SQS event cannot be processed because 'handler' parameter is missing. Add \"handler\":\"{sqsHandlerName}\" field to your record body."
+                  )
             }
           } catch handleSqsEventHandlerException(input)
         }
@@ -115,7 +116,17 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
                   throw UnsupportedEventError(write(event))
                 )
             case None =>
-              throw UnsupportedEventError(write(event))
+              if (genericEventHandlersMap.size == 1)
+              then
+                genericEventHandlersMap.head._2
+                  .handleEvent(event)
+                  .getOrElse(
+                    throw UnsupportedEventError(write(event))
+                  )
+              else
+                throw UnsupportedEventError(
+                  "Ambiguous generic event cannot be processed because 'handler' parameter is missing. Add \"handler\":\"{genericHandlerName}\" field to your event body."
+                )
           }
 
         } catch handleGenericEventHandlerException(input)
@@ -203,34 +214,33 @@ trait MultipleHandlersSupport[OtherContext] extends EventHandler, EventHandlerTa
 
   private inline def maybeFunctionName(json: ujson.Value): Option[String] =
     json
-      .get("functionName")
-      .flatMap(_.strOpt)
-      .orElse(
-        json
-          .get("function")
-          .flatMap(_.strOpt)
-      )
-      .orElse(
-        json
-          .get("handler")
-          .flatMap(_.strOpt)
-      )
+      .maybeString("functionName")
+      .orElse(json.maybeString("handlerName"))
+      .orElse(json.maybeString("handler"))
+      .orElse(json.maybeString("function"))
 
   private inline def getFunctionInput(event: ujson.Value): ujson.Value =
-    event.get("functionInputParts") match {
-      case Some(ujson.Arr(values)) =>
-        values.foldLeft(ujson.Obj()) { (a, v) =>
-          v match {
-            case Obj(newFields) => Obj.from(a.value ++ newFields)
-            case other =>
-              throw new Exception(
-                s"Expected functionInputParts array to contain only objects, but got ${other.getClass().getSimpleName()} $other"
-              )
+    event
+      .get("functionInputParts")
+      .orElse(event.get("handlerInputParts"))
+      .match {
+        case Some(ujson.Arr(values)) =>
+          values.foldLeft(ujson.Obj()) { (a, v) =>
+            v match {
+              case Obj(newFields) => Obj.from(a.value ++ newFields)
+              case other =>
+                throw new Exception(
+                  s"Expected functionInputParts array to contain only objects, but got ${other.getClass().getSimpleName()} $other"
+                )
+            }
           }
-        }
-      case Some(value) => value
-      case None        => event.get("functionInput").getOrElse(event)
-    }
+        case Some(value) => value
+        case None =>
+          event
+            .get("functionInput")
+            .orElse(event.get("handlerInput"))
+            .getOrElse(event)
+      }
 
   private inline def getFunctionInput(record: SqsEvent.Record): SqsEvent.Record =
     record.copy(body =

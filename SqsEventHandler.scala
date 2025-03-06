@@ -1,7 +1,7 @@
 package org.encalmo.lambda
 
 /** Abstract base class of an SQS event handler. */
-trait SqsEventHandler[OtherContext] {
+trait SqsEventHandler[ApplicationContext] {
 
   /** Optional function name for handling events having `function` property. If not defined it will default to the
     * simple class name.
@@ -10,5 +10,5 @@ trait SqsEventHandler[OtherContext] {
 
   def handleRecord(
       record: SqsEvent.Record
-  )(using LambdaContext, OtherContext): Option[String]
+  )(using LambdaContext, ApplicationContext): Option[String]
 }

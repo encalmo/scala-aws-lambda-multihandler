@@ -6,13 +6,13 @@ import ujson.Value
 import upickle.default.*
 import java.time.Instant
 
+class Foo
+
 class MultipleHandlersSupportSpec extends munit.FunSuite {
 
   override def munitFixtures = List(lambdaService)
 
   val lambdaService = new LambdaServiceFixture()
-
-  class Foo
 
   test("Execute generic event handler") {
 
@@ -32,6 +32,16 @@ class MultipleHandlersSupportSpec extends munit.FunSuite {
     )
 
     assertEquals(
+      lambdaRuntime.test("""{"handlerName":"TestMe","foo":"bar"}"""),
+      "bar"
+    )
+
+    assertEquals(
+      lambdaRuntime.test("""{"foo":"bar"}"""),
+      "bar"
+    )
+
+    assertEquals(
       lambdaRuntime.test("""{"bar":"foo"}"""),
       """{"success":false,"timestamp":"""
         + Instant.now().getEpochSecond()
@@ -45,15 +55,15 @@ class MultipleHandlersSupportSpec extends munit.FunSuite {
       "bar"
     )
     assertEquals(
-      lambdaRuntime.test("""{"function":"TestMe", "functionInput": {"foo":"bar"}}"""),
+      lambdaRuntime.test("""{"functionName":"TestMe", "functionInput": {"foo":"bar"}}"""),
       "bar"
     )
     assertEquals(
-      lambdaRuntime.test("""{"function":"TestMe", "functionInputParts": {"foo":"bar"}}"""),
+      lambdaRuntime.test("""{"handler":"TestMe", "functionInputParts": {"foo":"bar"}}"""),
       "bar"
     )
     assertEquals(
-      lambdaRuntime.test("""{"function":"TestMe", "functionInputParts": [{"foo":"bar"}]}"""),
+      lambdaRuntime.test("""{"handlerName":"TestMe", "handlerInputParts": [{"foo":"bar"}]}"""),
       "bar"
     )
     assertEquals(
@@ -148,41 +158,61 @@ class MultipleHandlersSupportSpec extends munit.FunSuite {
   override def afterAll(): Unit =
     lambdaService.close()
 
-  def lambdaRuntime = new LambdaRuntime with MultipleHandlersSupport[Foo] {
+  def lambdaRuntime =
+    new LambdaRuntime with MultipleHandlersSupport {
 
-    override given otherContext: Foo = new Foo
+      override type ApplicationContext = Foo
 
-    override def apiGatewayRequestHandlers: Iterable[ApiGatewayRequestHandler[Foo]] = Seq.empty
-
-    override def sqsEventHandlers: Iterable[SqsEventHandler[Foo]] = Seq(
-      new SqsEventHandler[Foo] {
-
-        override def functionName: Option[String] = Some("TestMe")
-
-        override def handleRecord(record: SqsEvent.Record)(using
-            LambdaContext,
-            Foo
-        ): Option[String] =
-          record.maybeParseBodyAsJson.flatMap(_.maybeString("foo"))
-
+      override def initialize(using environment: LambdaEnvironment) = {
+        environment.info(
+          s"Initializing lambda ${environment.getFunctionName()} ..."
+        )
+        new Foo
       }
-    )
 
-    override def genericEventHandlers: Iterable[GenericEventHandler[Foo]] =
-      Seq(new GenericEventHandler[Foo] {
+      override def apiGatewayRequestHandlers = Seq(new TestApiGatewayRequestHandler)
 
-        override def functionName: Option[String] = Some("TestMe")
+      override def sqsEventHandlers = Seq(new TestSqsEventHandler)
 
-        override def handleEvent(event: Value)(using
-            LambdaContext,
-            Foo
-        ): Option[String] = event.maybeString("foo")
-
-      })
-
-    lazy val config = configure { (environment: LambdaEnvironment) =>
-      println(s"Initializing lambda ${environment.getFunctionName()} ...")
+      override def genericEventHandlers = Seq(new TestGenericEventHandler)
     }
-  }
+
+}
+
+class TestGenericEventHandler extends GenericEventHandler[Foo] {
+
+  override def functionName: Option[String] = Some("TestMe")
+
+  override def handleEvent(event: Value)(using
+      LambdaContext,
+      Foo
+  ): Option[String] = event.maybeString("foo")
+
+}
+
+class TestSqsEventHandler extends SqsEventHandler[Foo] {
+
+  override def functionName: Option[String] = Some("TestMe")
+
+  override def handleRecord(record: SqsEvent.Record)(using
+      LambdaContext,
+      Foo
+  ): Option[String] =
+    record.maybeParseBodyAsJson.flatMap(_.maybeString("foo"))
+}
+
+class TestApiGatewayRequestHandler extends ApiGatewayRequestHandler[Foo] {
+
+  override def handleRequest(request: ApiGatewayRequest)(using LambdaContext, Foo): Option[ApiGatewayResponse] =
+    request.body.maybeReadAsJson
+      .flatMap(_.maybeString("foo"))
+      .map(foo =>
+        ApiGatewayResponse(
+          body = foo,
+          statusCode = 200,
+          headers = Map.empty,
+          isBase64Encoded = false
+        )
+      )
 
 }

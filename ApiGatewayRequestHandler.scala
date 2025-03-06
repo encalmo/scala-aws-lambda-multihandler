@@ -3,13 +3,13 @@ package org.encalmo.lambda
 import scala.util.matching.Regex
 
 /** Abstract base class of an http request handler. */
-trait ApiGatewayRequestHandler[OtherContext] {
+trait ApiGatewayRequestHandler[ApplicationContext] {
 
   type Resource = (String, Regex)
 
   def handleRequest(
       request: ApiGatewayRequest
-  )(using LambdaContext, OtherContext): Option[ApiGatewayResponse]
+  )(using LambdaContext, ApplicationContext): Option[ApiGatewayResponse]
 
   extension (r: Resource)
     inline def httpMethod: String = r._1
