@@ -1,4 +1,4 @@
-![Maven Central Version](https://img.shields.io/maven-central/v/org.encalmo/scala-aws-lambda-multihandler_3?style=for-the-badge)
+<a href="https://github.com/">![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)</a> <a href="https://central.sonatype.com/artifact/org.encalmo/scala-aws-lambda-multihandler_3" target="_blank">![Maven Central Version](https://img.shields.io/maven-central/v/org.encalmo/scala-aws-lambda-multihandler_3?style=for-the-badge)</a> 
 
 # scala-aws-lambda-multihandler
 
@@ -13,11 +13,11 @@ Multiple handlers support for lambda written using scala-aws-lambda-runtime.
 
 Use with SBT
 
-    libraryDependencies += "org.encalmo" %% "scala-aws-lambda-multihandler" % "0.9.0"
+    libraryDependencies += "org.encalmo" %% "scala-aws-lambda-multihandler" % "0.9.4"
 
 or with SCALA-CLI
 
-    //> using dep org.encalmo::scala-aws-lambda-multihandler:0.9.0
+    //> using dep org.encalmo::scala-aws-lambda-multihandler:0.9.4
 
 ## Examples
 
