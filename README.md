@@ -6,8 +6,8 @@ Multiple handlers support for lambda written using scala-aws-lambda-runtime.
 
 ## Dependencies
 
-- Scala >= 3.3.5
-- [scala-aws-lambda-runtime](https://github.com/encalmo/scala-aws-lambda-runtime)
+   - [Scala](https://www.scala-lang.org/) >= 3.3.5
+   - org.encalmo [**scala-aws-lambda-runtime** 0.9.6](https://central.sonatype.com/artifact/org.encalmo/scala-aws-lambda-runtime_3) | [**scala-aws-lambda-utils** 0.9.2](https://central.sonatype.com/artifact/org.encalmo/scala-aws-lambda-utils_3)
 
 ## Usage
 
